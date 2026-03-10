@@ -1,0 +1,8 @@
+ALTER TABLE "ProductOption"
+ADD COLUMN "quantity" INTEGER NOT NULL DEFAULT 0;
+
+ALTER TABLE "ProductOption"
+ADD COLUMN "price" DECIMAL(12, 2) NOT NULL DEFAULT 0;
+
+ALTER TABLE "Order"
+ADD COLUMN "selectedOption" TEXT;

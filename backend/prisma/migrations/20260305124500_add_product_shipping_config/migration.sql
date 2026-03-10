@@ -1,0 +1,5 @@
+ALTER TABLE "Product"
+ADD COLUMN "packageSize" TEXT NOT NULL DEFAULT 'small';
+
+ALTER TABLE "Product"
+ADD COLUMN "freeShipping" BOOLEAN NOT NULL DEFAULT false;

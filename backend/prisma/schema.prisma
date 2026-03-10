@@ -1,0 +1,391 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELED
+}
+
+enum DeliveryMethod {
+  HOME
+  PICKUP_POINT
+}
+
+enum ConversationType {
+  DIRECT
+  SUPPORT
+}
+
+enum WalletTransactionType {
+  DEPOSIT
+  WITHDRAWAL
+}
+
+enum WithdrawalPayoutStatus {
+  PENDING
+  PAID
+}
+
+enum OfferStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  COUNTERED
+}
+
+enum UserReportType {
+  FAKE
+  FRAUD
+  ABUSE
+  SPAM
+}
+
+enum ProductReportType {
+  FRAUD
+  COUNTERFEIT
+  WRONG_INFO
+  ABUSE
+  OTHER
+}
+
+model User {
+  id               String                 @id @default(cuid())
+  username         String                 @unique
+  email            String                 @unique
+  passwordHash     String
+  role             UserRole               @default(USER)
+  adminPermissions String[]               @default([])
+  phone            String?
+  isDisabled       Boolean                @default(false)
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+  profile          UserProfile?
+  products         Product[]
+  ordersAsBuyer    Order[]                @relation("buyerOrders")
+  ordersAsSeller   Order[]                @relation("sellerOrders")
+  wallet           Wallet?
+  paymentEdahabia  PaymentMethodEdahabia?
+  paymentCcp       PaymentMethodCCP?
+  favorites        Favorite[]
+  following        UserFollow[]           @relation("UserFollowing")
+  followers        UserFollow[]           @relation("UserFollowers")
+  sentMessages     ChatMessage[]
+  notificationReadStates NotificationReadState[]
+  chatReadStates   ChatReadState[]
+  buyerOffers      ProductOffer[]         @relation("buyerOffers")
+  sellerOffers     ProductOffer[]         @relation("sellerOffers")
+  walletTransactions WalletTransaction[]
+  reportedUsers        UserReport[]           @relation("reportedUsers")
+  submittedUserReports UserReport[]           @relation("submittedUserReports")
+  submittedProductReports ProductReport[]     @relation("submittedProductReports")
+  passwordResetRequests   PasswordResetRequest[]
+}
+
+model UserProfile {
+  userId          String   @id
+  avatarUrl       String?
+  bio             String?
+  firstName       String?
+  lastName        String?
+  gender          String?
+  birthDate       DateTime?
+  wilayaId        Int?
+  municipality    String?
+  showLocation    Boolean  @default(false)
+  rating          Float    @default(0)
+  followersCount  Int      @default(0)
+  followingCount  Int      @default(0)
+  joinDate        DateTime @default(now())
+  verified        Boolean  @default(false)
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model UserFollow {
+  followerId  String
+  followingId String
+  createdAt   DateTime @default(now())
+  follower    User     @relation("UserFollowing", fields: [followerId], references: [id], onDelete: Cascade)
+  following   User     @relation("UserFollowers", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@id([followerId, followingId])
+  @@index([followingId])
+}
+
+model Category {
+  id            String        @id @default(cuid())
+  name          String        @unique
+  subcategories Subcategory[]
+  products      Product[]
+}
+
+model Subcategory {
+  id         String    @id @default(cuid())
+  categoryId String
+  name       String
+  category   Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  products   Product[]
+
+  @@unique([categoryId, name])
+}
+
+model Product {
+  id            String      @id @default(cuid())
+  sellerId      String
+  title         String
+  description   String
+  condition     String      @default("new")
+  packageSize   String      @default("small")
+  freeShipping  Boolean     @default(false)
+  price         Decimal     @db.Decimal(12, 2)
+  quantity      Int
+  categoryId    String
+  subcategoryId String
+  deletedAt     DateTime?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  seller        User        @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  category      Category    @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  subcategory   Subcategory @relation(fields: [subcategoryId], references: [id], onDelete: Restrict)
+  orders        Order[]
+  favorites     Favorite[]
+  images        ProductImage[]
+  options       ProductOption[]
+  offers        ProductOffer[]
+  reports       ProductReport[]
+
+  @@index([deletedAt])
+}
+
+model ProductImage {
+  id        String   @id @default(cuid())
+  productId String
+  url       String
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId, sortOrder])
+}
+
+model ProductOption {
+  id        String   @id @default(cuid())
+  productId String
+  name      String
+  price     Decimal  @db.Decimal(12, 2)
+  quantity  Int      @default(0)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId, sortOrder])
+}
+
+model Order {
+  id             String         @id @default(cuid())
+  productId      String
+  selectedOption String?
+  quantity       Int            @default(1)
+  buyerId        String
+  sellerId       String
+  fullName       String
+  phone          String
+  address        String
+  wilayaId       Int
+  municipality   String
+  deliveryMethod DeliveryMethod
+  amount         Decimal        @db.Decimal(12, 2)
+  shippingCost   Decimal        @db.Decimal(12, 2)
+  status         OrderStatus    @default(PENDING)
+  orderDate      DateTime       @default(now())
+  product        Product        @relation(fields: [productId], references: [id], onDelete: Restrict)
+  buyer          User           @relation("buyerOrders", fields: [buyerId], references: [id], onDelete: Restrict)
+  seller         User           @relation("sellerOrders", fields: [sellerId], references: [id], onDelete: Restrict)
+  review         Review?
+  offerId        String?        @unique
+  offer          ProductOffer?  @relation(fields: [offerId], references: [id], onDelete: SetNull)
+}
+
+model ProductOffer {
+  id            String      @id @default(cuid())
+  productId     String
+  buyerId       String
+  sellerId      String
+  conversationId String
+  selectedOption String
+  quantity      Int         @default(1)
+  offeredPrice  Decimal     @db.Decimal(12, 2)
+  acceptedPrice Decimal?    @db.Decimal(12, 2)
+  status        OfferStatus @default(PENDING)
+  rejectedAt    DateTime?
+  acceptedAt    DateTime?
+  usedAt        DateTime?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  product       Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  buyer         User        @relation("buyerOffers", fields: [buyerId], references: [id], onDelete: Cascade)
+  seller        User        @relation("sellerOffers", fields: [sellerId], references: [id], onDelete: Cascade)
+  conversation  ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  order         Order?
+
+  @@index([productId, buyerId, status, usedAt])
+  @@index([conversationId, createdAt])
+}
+
+model Review {
+  id      String   @id @default(cuid())
+  orderId String   @unique
+  stars   Int
+  comment String?
+  date    DateTime @default(now())
+  order   Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
+
+model Wallet {
+  userId    String   @id
+  available Decimal  @default(0) @db.Decimal(12, 2)
+  pending   Decimal  @default(0) @db.Decimal(12, 2)
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model WalletTransaction {
+  id         String                @id @default(cuid())
+  userId     String
+  type       WalletTransactionType
+  amount     Decimal               @db.Decimal(12, 2)
+  ccpAccountNumber String?
+  ccpSecurityKey   String?
+  payoutStatus     WithdrawalPayoutStatus?
+  paidAt           DateTime?
+  createdAt  DateTime              @default(now())
+  user       User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([type, payoutStatus, createdAt])
+}
+
+model PaymentMethodEdahabia {
+  userId           String   @id
+  cardNumberMasked String
+  cvv              String
+  holderName       String
+  expiry           String
+  createdAt        DateTime @default(now())
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model PaymentMethodCCP {
+  userId        String   @id
+  accountNumber String
+  securityKey   String   @map("key")
+  createdAt     DateTime @default(now())
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Favorite {
+  userId    String
+  productId String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@id([userId, productId])
+}
+
+model ChatConversation {
+  id            String        @id @default(cuid())
+  type          ConversationType
+  participants  String[]
+  lastMessageAt DateTime?
+  createdAt     DateTime      @default(now())
+  messages      ChatMessage[]
+  readStates    ChatReadState[]
+  offers        ProductOffer[]
+}
+
+model ChatMessage {
+  id             String           @id @default(cuid())
+  conversationId String
+  senderId       String
+  text           String
+  sentAt         DateTime         @default(now())
+  conversation   ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender         User             @relation(fields: [senderId], references: [id], onDelete: Restrict)
+}
+
+model ChatReadState {
+  conversationId String
+  userId         String
+  readAt         DateTime @default(now())
+  conversation   ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([conversationId, userId])
+  @@index([userId, readAt])
+}
+
+model NotificationReadState {
+  userId          String
+  notificationKey String
+  readAt          DateTime @default(now())
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, notificationKey])
+  @@index([userId, readAt])
+}
+
+model UserReport {
+  id            String         @id @default(cuid())
+  reportedUserId String
+  reporterId    String
+  type          UserReportType
+  createdAt     DateTime       @default(now())
+  reportedUser  User           @relation("reportedUsers", fields: [reportedUserId], references: [id], onDelete: Cascade)
+  reporter      User           @relation("submittedUserReports", fields: [reporterId], references: [id], onDelete: Cascade)
+
+  @@index([reportedUserId, createdAt])
+  @@index([reporterId, createdAt])
+}
+
+model ProductReport {
+  id         String            @id @default(cuid())
+  productId  String
+  reporterId String
+  type       ProductReportType
+  createdAt  DateTime          @default(now())
+  product    Product           @relation(fields: [productId], references: [id], onDelete: Cascade)
+  reporter   User              @relation("submittedProductReports", fields: [reporterId], references: [id], onDelete: Cascade)
+
+  @@index([productId, createdAt])
+  @@index([reporterId, createdAt])
+}
+
+model PasswordResetRequest {
+  id         String   @id @default(cuid())
+  userId     String
+  codeHash   String
+  attempts   Int      @default(0)
+  expiresAt  DateTime
+  verifiedAt DateTime?
+  consumedAt DateTime?
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([expiresAt])
+}

@@ -1,0 +1,19 @@
+{
+  "name": "dzmarket-monorepo",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "concurrently -k -n backend,frontend -c cyan,green \"npm run dev --prefix backend\" \"npm run dev --prefix frontend\"",
+    "dev:backend": "npm run dev --prefix backend",
+    "dev:frontend": "npm run dev --prefix frontend",
+    "start": "concurrently -k -n backend,frontend -c cyan,green \"npm run start --prefix backend\" \"npm run preview --prefix frontend\"",
+    "build": "npm run build --prefix frontend",
+    "build:all": "npm run build --prefix frontend && npm run prisma:generate --prefix backend",
+    "test": "npm run test --prefix frontend && npm run test --prefix backend",
+    "prisma:deploy": "npm run prisma:deploy --prefix backend",
+    "prisma:generate": "npm run prisma:generate --prefix backend"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}
