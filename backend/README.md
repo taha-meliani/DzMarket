@@ -53,3 +53,8 @@ npm run dev
 npm test
 ```
 
+6. Seed demo sellers and products:
+
+```bash
+npm run seed:demo
+```

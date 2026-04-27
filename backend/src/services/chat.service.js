@@ -113,10 +113,9 @@ export async function listConversations(userId) {
     messageGroups.map((group) => [group.conversationId, Number(group._count?._all || 0)]),
   );
 
-  const visibleConversations = conversations.filter((conversation) => {
-    if (conversation.type !== "SUPPORT") return true;
-    return Number(messageCountMap.get(conversation.id) || 0) > 0;
-  });
+  const visibleConversations = conversations.filter(
+    (conversation) => Number(messageCountMap.get(conversation.id) || 0) > 0,
+  );
   if (!visibleConversations.length) return [];
 
   const visibleConversationIds = visibleConversations.map((conversation) => conversation.id);

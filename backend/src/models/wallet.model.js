@@ -37,6 +37,7 @@ export const walletModel = {
         sellerId: true,
         amount: true,
         shippingCost: true,
+        buyerProtectionFee: true,
         orderDate: true,
         product: {
           select: {

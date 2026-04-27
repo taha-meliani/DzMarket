@@ -1,6 +1,8 @@
 import { prisma } from "../config/prisma.js";
 import { calculateShippingCost } from "../utils/shipping.js";
 
+const BUYER_PROTECTION_RATE = 0.05;
+
 export const orderModel = {
   createWithWallets: async ({ buyerId, productId, selectedOption, quantity, offerId, deliveryMethod, fullName, phone, address, wilayaId, municipality }) =>
     prisma.$transaction(async (tx) => {
@@ -89,11 +91,12 @@ export const orderModel = {
         linkedOfferId = acceptedOffer.id;
       }
       const itemSubtotal = selectedOptionPrice * quantity;
+      const buyerProtectionFee = Math.round(itemSubtotal * BUYER_PROTECTION_RATE * 100) / 100;
       const shippingCost = calculateShippingCost({
         packageSize: product.packageSize,
         freeShipping: product.freeShipping,
       });
-      const total = itemSubtotal + shippingCost;
+      const total = itemSubtotal + shippingCost + buyerProtectionFee;
       if (Number(buyerWallet.available) < total) {
         const err = new Error("Insufficient wallet balance");
         err.status = 400;
@@ -136,6 +139,7 @@ export const orderModel = {
           deliveryMethod,
           amount: itemSubtotal,
           shippingCost,
+          buyerProtectionFee,
         },
       });
       if (linkedOfferId) {
@@ -245,7 +249,7 @@ export const orderModel = {
           update: {},
         });
 
-        const refundAmount = Number(order.amount) + Number(order.shippingCost);
+        const refundAmount = Number(order.amount) + Number(order.shippingCost) + Number(order.buyerProtectionFee || 0);
         await tx.wallet.update({
           where: { userId: order.buyerId },
           data: { available: Number(buyerWallet.available) + refundAmount },

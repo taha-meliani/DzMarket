@@ -24,16 +24,15 @@ export async function getWallet(userId) {
       return {
         id: `purchase:${order.id}`,
         type: "purchase",
-        amount: Number(order.amount),
+        amount: Number(order.amount) + Number(order.shippingCost) + Number(order.buyerProtectionFee || 0),
         productTitle: order.product?.title || "",
         createdAt: order.orderDate,
       };
     }
-    const saleAmount = Math.max(0, Number(order.amount) - Number(order.shippingCost));
     return {
       id: `sale:${order.id}`,
       type: "sale",
-      amount: saleAmount,
+      amount: Number(order.amount),
       productTitle: order.product?.title || "",
       createdAt: order.orderDate,
     };
